@@ -68,6 +68,72 @@ iptables -t mangle -A POSTROUTING -j TEE --gateway $IPS
 <!-- Métodos y herramientas para identificar errores de configuración analizando el tráfico de red. -->
 
 ## Identificación de comportamientos no deseados en la red a través del análisis de logs
+
+### Instalacion de Suricata Elasticsearch Kibana Filebeat
+```bash
+sudo dnf install 'dnf-command(copr)'
+sudo dnf copr enable @oisf/suricata-7.0
+sudo dnf install epel-release
+sudo dnf install suricata
+sudo systemctl enable suricata.service
+sudo systemctl stop suricata.service
+sudo vim /etc/suricata/suricata.yaml
+# community-id: true
+ip -p -j route show default
+sudo vim /etc/suricata/suricata.yaml
+# - interface: eth0
+# detect-engine:
+#  - rule-reload: true
+sudo kill -usr2 $(pidof suricata)
+sudo suricata-update
+sudo suricata-update list-sources
+sudo suricata-update enable-source tgreen/hunting
+sudo suricata -T -c /etc/suricata/suricata.yaml -v
+sudo systemctl start suricata.service
+```
+
+```bash
+sudo rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
+sudo vim /etc/yum.repos.d/elasticsearch.repo
+# [elasticsearch]
+#name=Elasticsearch repository for 7.x packages
+#baseurl=https://artifacts.elastic.co/packages/7.x/yum
+#gpgcheck=1
+#gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+#enabled=0
+#autorefresh=1
+#type=rpm-md
+sudo dnf install --enablerepo=elasticsearch elasticsearch kibana
+ip -brief address show
+sudo vim /etc/elasticsearch/elasticsearch.yml
+# network.bind_host: ["127.0.0.1", "205.124.212.254"]
+# discovery.type: single-node
+# xpack.security.enabled: true
+sudo systemctl start elasticsearch.service
+cd /usr/share/elasticsearch/bin
+sudo ./elasticsearch-setup-passwords auto
+cd /usr/share/kibana/bin/
+sudo ./kibana-encryption-keys generate -q --force
+sudo vim /etc/kibana/kibana.yml
+# xpack.encryptedSavedObjects.encryptionKey: 
+# xpack.reporting.encryptionKey: 
+# xpack.security.encryptionKey: 
+# server.host: "205.124.212.254"
+cd /usr/share/kibana/bin
+sudo ./kibana-keystore add elasticsearch.username
+sudo ./kibana-keystore add elasticsearch.password
+sudo systemctl start kibana.service
+sudo dnf install --enablerepo=elasticsearch filebeat
+sudo vim /etc/filebeat/filebeat.yml
+# host: "205.124.212.254:5601"
+# hosts: ["205.124.212.254:9200"]
+# username: "elastic"
+# password: "************"
+sudo filebeat modules enable suricata
+sudo filebeat setup
+sudo systemctl start filebeat.service
+```
+
 <!-- Procedimientos para analizar logs y detectar actividades sospechosas o no deseadas. -->
 
 ## Implementación de contramedidas frente a comportamientos no deseados
