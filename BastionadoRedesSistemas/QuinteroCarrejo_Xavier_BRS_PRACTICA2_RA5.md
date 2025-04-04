@@ -2,10 +2,8 @@
 
 ## Tabla de Contenidos
 1. [Configuración de dispositivos de seguridad perimetral](#configuracion-de-dispositivos-de-seguridad-perimetral)
-   1.1. [Sistema Operativo](#sistema-operativo)
-   1.2. [Firewall](#firewall)
-   1.3. [Esquema de red](#esquema-de-red)
-   1.4. [Configuración de firewall](#configuracion-de-firewall)
+   1.1. [Esquema de red](#esquema-de-red)
+   1.2. [Configuración de firewall](#configuracion-de-firewall)
 2. [Detección de errores de configuración mediante análisis de tráfico](#deteccion-de-errores-de-configuracion-mediante-analisis-de-trafico)
 3. [Identificación de comportamientos no deseados en la red a través del análisis de logs](#identificacion-de-comportamientos-no-deseados-en-la-red-a-traves-del-analisis-de-logs)
 4. [Implementación de contramedidas frente a comportamientos no deseados](#implementacion-de-contramedidas-frente-a-comportamientos-no-deseados)
@@ -15,14 +13,9 @@
 
 ## Configuración de dispositivos de seguridad perimetral
 
-### Sistema Operativo
-Rocky Linux es una distribución enfocada en entornos empresariales y servidores, diseñada para ser un clon binario de Red Hat Enterprise Linux (RHEL) siendo el sucesor de CentOS.
-
-### Firewall
-Iptables es una herramienta de Linux que filtra el tráfico de red entrante y saliente. Actúa como un firewall que controla las conexiones que se permiten y las que se bloquean.
-
 ### Esquema de red
 ![Esquema](img/bastionado.png)
+
 El esquema consta de un Rocky Linux 9.5 como router usando Iptables como firewall y cockpit para el sistema de monitoreo, tendra una DMZ en la subred 10.0.0.0/8 para los servicios que se van a exponer al exterior, una LAN en la subred 172.16.0.0/16 y por separado estara suricata en la red 205.124.212.252/30 que va a monitorizar todo el trafico que entre a la red con elasticsearch, kibana y filebeats para la recoleccion de logs
 ### Configuración de firewall
 ```bash
